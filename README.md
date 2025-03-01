@@ -38,6 +38,8 @@ pip install -r requirements.txt
 
 The `tool_agent.py` script is designed to interact with various tools and perform automated tasks. Everything is self contained within the single Python script. The "tool" functions are mocked stand-ins for actual network connected tools. The purpose of the script is to visualize how to connect tools to an LLM and have the LLM use the tools to perform tasks and actions.
 
+[tool_agent readme](tool_agent.md)
+
 To run the tool agent, use the following command:
 
 ```
@@ -47,6 +49,8 @@ python tool_agent.py
 ### Web Agent
 
 The `web_agent.py` script is designed to interact with web services and perform web-related tasks using a web browser. The agent is given the HTML content and a set of browser-automation tools it can use to interact with the web content. The purpose of the script is to evaluate how an LLM can manipulate _mostly_ unstructured content. Most web pages are *not* well structured.
+
+[web_agent readme](web_agent.md)
 
 To run the web agent, use the following command:
 
