@@ -1,6 +1,6 @@
 # LLM Agents
 
-This repository contains two main agents: `tool_agent.py` and `web_agent.py`. These agents are designed to perform specific tasks using large language models (LLMs). These scripts are really a basic exploration into the agent space. I want to learn some of the basic, hard truths of trying to build raw agents _before_ moving on to leverage full-blown frameworks that hide the details.
+This repository contains two main agents: `tool_agent.py` and `web_agent.py`. These agents are designed to perform specific tasks using large language models (LLMs). These scripts are really a basic exploration into the agent space. I want to learn some of the basic, hard truths of trying to build raw agents _before_ moving on to leverage full-blown frameworks that hide the details. These scripts purposefully using the bare minimum number of dependencies.
 
 ## Setup
 ### Using a Virtual Environment
