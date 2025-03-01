@@ -2,6 +2,10 @@
 
 The `web_agent` is a Python script designed to automate interactions with web pages using the Playwright library. It leverages a language model (LLM) to generate actions based on the HTML content of the current page and the specified task. The agent can perform various actions such as clicking buttons, typing text, navigating to new pages, and extracting information from the page.
 
+There are two flavors of web agent: non-conversational and conversational
+* The non-conversational agent does not really have any memory of its actions and progress. Any previous information and context must be passed into the LLM for every prompt. This limits the abilities of the agent and puts more work on us to supply context.
+* The conversational agent uses the LLM's conversation mode to maintain a basic memory of the entire flow. The large system prompt is not needed on every invocation. The results of every action are available to the LLM by simply adding the results to the conversation.
+
 ## How It Works
 
 ### PageManager Class
