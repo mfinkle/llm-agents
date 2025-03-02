@@ -42,6 +42,71 @@ def calculate(expression):
     except (SyntaxError, NameError, TypeError, ZeroDivisionError) as e:
         return { 'result': None, 'status': 'fail' }
 
+today = datetime.datetime.now()
+tomorrow = today + datetime.timedelta(days=1)
+next_week = today + datetime.timedelta(days=7)
+appointments_data = [
+    {'id': '1', 'date': today.strftime('%Y-%m-%d'), 'time': '10:00 AM', 'specialty': 'dentist', 'open': True},
+    {'id': '2', 'date': today.strftime('%Y-%m-%d'), 'time': '11:00 AM', 'specialty': 'dentist', 'open': True},
+    {'id': '3', 'date': tomorrow.strftime('%Y-%m-%d'), 'time': '11:00 AM', 'specialty': 'dentist', 'open': True},
+    {'id': '4', 'date': tomorrow.strftime('%Y-%m-%d'), 'time': '3:00 PM', 'specialty': 'dentist', 'open': True},
+    {'id': '5', 'date': next_week.strftime('%Y-%m-%d'), 'time': '1:00 PM', 'specialty': 'dentist', 'open': True},
+    {'id': '6', 'date': next_week.strftime('%Y-%m-%d'), 'time': '2:00 PM', 'specialty': 'dentist', 'open': True},
+    {'id': '7', 'date': tomorrow.strftime('%Y-%m-%d'), 'time': '2:00 PM', 'specialty': 'vision', 'open': True},
+    {'id': '8', 'date': next_week.strftime('%Y-%m-%d'), 'time': '2:00 PM', 'specialty': 'vision', 'open': True},
+    {'id': '9', 'date': next_week.strftime('%Y-%m-%d'), 'time': '4:00 PM', 'specialty': 'vision', 'open': True},
+    {'id': '10', 'date': today.strftime('%Y-%m-%d'), 'time': '10:30 AM', 'specialty': 'hair', 'open': True},
+    {'id': '11', 'date': tomorrow.strftime('%Y-%m-%d'), 'time': '2:00 PM', 'specialty': 'hair', 'open': True},
+    {'id': '12', 'date': next_week.strftime('%Y-%m-%d'), 'time': '11:00 AM', 'specialty': 'hair', 'open': True},
+    {'id': '13', 'date': next_week.strftime('%Y-%m-%d'), 'time': '3:00 PM', 'specialty': 'hair', 'open': True},
+]
+
+def get_specialties():
+    """Gets the list of available specialties."""
+    specialties = list(set([appointment['specialty'] for appointment in appointments_data]))
+    return specialties
+
+def get_available_appointments(specialty):
+    """Gets the available appointments for the given specialty."""
+    open_appointments = [
+        { 'id': appointment['id'], 'date': appointment['date'], 'time': appointment['time'] }
+        for appointment in appointments_data
+        if appointment['specialty'] == specialty and appointment['open']
+    ]
+    return open_appointments
+
+def book_appointment(booking_data):
+    """Books the given appointment."""
+    for appointment in appointments_data:
+        if appointment['open']:
+            # Check if we're matching by ID or by date+time
+            if ('id' in booking_data and appointment['id'] == booking_data['id']):
+                appointment['open'] = False
+                return { 'status': 'success', 'message': 'Appointment booked successfully.' }
+
+            if ('date' in booking_data and 'time' in booking_data and appointment['date'] == booking_data['date'] and appointment['time'] == booking_data['time']):
+                appointment['open'] = False
+                return { 'status': 'success', 'message': 'Appointment booked successfully.' }
+
+    return { 'status': 'fail', 'message': 'Appointment not available.' }
+
+def get_my_appointments():
+    """Gets the appointments booked by the user."""
+    my_appointments = [
+        { 'id': appointment['id'], 'date': appointment['date'], 'time': appointment['time'], 'specialty': appointment['specialty'] }
+        for appointment in appointments_data
+        if not appointment['open']
+    ]
+    return my_appointments
+
+def cancel_appointment(appointment_id):
+    """Cancels the appointment with the given ID."""
+    for appointment in appointments_data:
+        if not appointment['open'] and appointment['id'] == appointment_id:
+            appointment['open'] = True
+            return { 'status': 'success', 'message': 'Appointment canceled successfully.' }
+    return { 'status': 'fail', 'message': 'Appointment not found.' }
+
 
 # Create a registry of tool functions available to the agent
 api_functions = {
@@ -70,7 +135,31 @@ api_functions = {
         'description': 'Gets the current date and time. Example: { "type": "call_function", "tool": "get_datetime" }',
         'response': 'Returns the current date and time. Example: {"date": "2022-01-01", "time": "12:00 PM"}'
     },
+    'get_specialties': {
+        'method': get_specialties,
+        'description': 'Gets the list of available specialties for scheduling appointments. Example: { "type": "call_function", "tool": "get_specialties" }',
+        'response': 'Returns a list of specialties. Example: ["dentist", "vision"]'
     },
+    'get_available_appointments': {
+        'method': get_available_appointments,
+        'description': 'Gets the available appointments for the given specialty. Example: { "type": "call_function", "tool": "get_available_appointments", "param": "dentist" }',
+        'response': 'Returns a list of available appointments. Example: [{"id": "1", "date": "2022-01-01", "time": "10:00 AM"}]'
+    },
+    'book_appointment': {
+        'method': book_appointment,
+        'description': 'Books the given appointment. Example: { "type": "call_function", "tool": "book_appointment", "param": {"date": "2022-01-01", "time": "10:00 AM"} }',
+        'response': 'Returns the status of the booking. Example: {"status": "success", "message": "Appointment booked successfully."}'
+    },
+    'get_my_appointments': {
+        'method': get_my_appointments,
+        'description': 'Gets the appointments booked by the user. Example: { "type": "call_function", "tool": "get_my_appointments" }',
+        'response': 'Returns a list of booked appointments. Example: [{"id": "1", "date": "2022-01-01", "time": "10:00 AM", "specialty": "dentist"}]'
+    },
+    'cancel_appointment': {
+        'method': cancel_appointment,
+        'description': 'Cancels the appointment with the given ID. Example: { "type": "call_function", "tool": "cancel_appointment", "param": "1" }',
+        'response': 'Returns the status of the cancellation. Example: {"status": "success", "message": "Appointment canceled successfully."}'
+    }
 }
 
 
