@@ -13,6 +13,11 @@ The agent has access to a set of tool functions that enable it to perform specif
 - `get_zipcode(city)`: Simulates retrieving zip code for a specified city
 - `calculate(expression)`: Evaluates mathematical expressions safely
 - `get_datetime()`: Returns the current date and time
+- `get_specialties()`: Retrieves a list of available specialties for scheduling appointments
+- `get_available_appointments(specialty)`: Retrieves available appointments for a given specialty
+- `book_appointment(booking_data)`: Books an appointment based on provided booking data
+- `get_my_appointments()`: Retrieves the list of appointments booked by the user
+- `cancel_appointment(appointment_id)`: Cancels a booked appointment based on the provided appointment ID
 
 ### API Function Registry
 
@@ -21,6 +26,8 @@ Each tool function is registered in an `api_functions` dictionary with metadata 
 - A description of what the function does
 - Example usage format
 - Expected response format
+
+The metadata is used to build context for the system prompt.
 
 ### Conversation Loop
 
