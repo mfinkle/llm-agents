@@ -8,67 +8,68 @@ import llm
 def search_web(query):
     """Searches the web for the given query."""
     return [
-        {"title": "Result 1", "url": "http://www.example.com/result1"},
-        {"title": "Result 2", "url": "http://www.example.com/result2"},
-        {"title": "Result 3", "url": "http://www.example.com/result3"}
+        {'title': 'Result 1', 'url': 'http://www.example.com/result1'},
+        {'title': 'Result 2', 'url': 'http://www.example.com/result2'},
+        {'title': 'Result 3', 'url': 'http://www.example.com/result3'}
     ]
 
 def get_weather(zipcode):
     """Gets the weather for the given city."""
     return {
-        "temperature": "75 F",
-        "conditions": "Sunny"
+        'temperature': '75 F',
+        'conditions': 'Sunny'
     }
 
 def get_zipcode(city):
     """Gets the zipcode for the given city."""
     return {
-        "zipcode": "90210"
+        'zipcode': '90210'
     }
 
 def get_datetime():
     """Gets the current date and time."""
     now = datetime.datetime.now()
     return {
-        "date": now.strftime("%Y-%m-%d"),
-        "time": now.strftime("%I:%M %p")
+        'date': now.strftime('%Y-%m-%d'),
+        'time': now.strftime('%I:%M %p')
     }
 
 def calculate(expression):
     """Calculates the given mathematical expression."""
     try:
         result = eval(expression)
-        return { "result": result, "status": "success" }
+        return { 'result': result, 'status': 'success' }
     except (SyntaxError, NameError, TypeError, ZeroDivisionError) as e:
-        return { "result": None, "status": "fail" }
+        return { 'result': None, 'status': 'fail' }
 
 
 # Create a registry of tool functions available to the agent
 api_functions = {
-    "search_web": {
-        "method": search_web,
-        "description": "Searches the web for the given query. Example: { 'tool': 'search_web', 'param': 'python programming' }",
-        "response": "Returns a list of search results with titles and urls. Example: [{'title': 'Result 1', 'url': 'http://www.example.com/result1'}]"
+    'search_web': {
+        'method': search_web,
+        'description': 'Searches the web for the given query. Example: { "type": "call_function", "tool": "search_web", "param": "python programming" }',
+        'response': 'Returns a list of search results with titles and urls. Example: [{"title": "Result 1", "url": "http://www.example.com/result1"}]'
     },
-    "get_weather": {
-        "method": get_weather,
-        "description": "Gets the weather for the given zipcode. Example: { 'tool': 'get_weather', 'param': '90210' }",
-        "response": "Returns the temperature and conditions. Example: {'temperature': '75 F', 'conditions': 'Sunny'}"
+    'get_weather': {
+        'method': get_weather,
+        'description': 'Gets the weather for the given zipcode. Example: { "type": "call_function", "tool": "get_weather", "param": "90210" }',
+        'response': 'Returns the temperature and conditions. Example: {"temperature": "75 F", "conditions": "Sunny"}'
     },
-    "get_zipcode": {
-        "method": get_zipcode,
-        "description": "Gets the zipcode for the given city. Example: { 'tool': 'get_zipcode', 'param': 'Beverly Hills' }",
-        "response": "Returns the zipcode. Example: {'zipcode': '90210'}"
+    'get_zipcode': {
+        'method': get_zipcode,
+        'description': 'Gets the zipcode for the given city. Example: { "type": "call_function", "tool": "get_zipcode", "param": "Beverly Hills" }',
+        'response': 'Returns the zipcode. Example: {"zipcode": "90210"}'
     },
-    "calculate": {
-        "method": calculate,
-        "description": "Calculates the given mathematical expression. Example: { 'tool': 'calculate', 'param': '2 + 2' }",
-        "response": "Returns the result of the calculation. Example: {'result': 4, 'status': 'success'}"
+    'calculate': {
+        'method': calculate,
+        'description': 'Calculates the given mathematical expression. Example: { "type": "call_function", "tool": "calculate", "param": "2 + 2" }',
+        'response': 'Returns the result of the calculation. Example: {"result": 4, "status": "success"}'
     },
-    "get_datetime": {
-        "method": get_datetime,
-        "description": "Gets the current date and time. Example: { 'tool': 'get_datetime' }",
-        "response": "Returns the current date and time. Example: {'date': '2022-01-01', 'time': '12:00 PM'}"
+    'get_datetime': {
+        'method': get_datetime,
+        'description': 'Gets the current date and time. Example: { "type": "call_function", "tool": "get_datetime" }',
+        'response': 'Returns the current date and time. Example: {"date": "2022-01-01", "time": "12:00 PM"}'
+    },
     },
 }
 
@@ -85,7 +86,7 @@ def extract_action_from_response(response):
 
 # Start the chat with the agent
 def start_chat(model):
-    tool_registry = "\n".join([f"<tool><name>{name}</name><description>{details['description']}</description><response>{details['response']}</response></tool>" for name, details in api_functions.items()])
+    tool_registry = '\n'.join([f"<tool><name>{name}</name><description>{details['description']}</description><response>{details['response']}</response></tool>" for name, details in api_functions.items()])
     tool_registry_xml = f"<tools>{tool_registry}</tools>"
     
     print(f"Tool registry: {tool_registry_xml}")
@@ -105,41 +106,42 @@ def start_chat(model):
 
     def chat_loop():
         while True:
-            user_input = input("You: ")
-            if user_input.lower().strip() in ["exit", "quit", "bye"]:
-                print("Goodbye!")
+            user_input = input('You: ')
+            if user_input.lower().strip() in ['exit', 'quit', 'bye']:
+                print('Goodbye!')
                 break
 
             response = conversation.prompt(user_input)
             action = extract_action_from_response(response)
 
             # Check for API function calls
-            while action['type'] == "call_function":
+            while action['type'] == 'call_function':
                 try:
                     # Extract the function call from the response
                     function_name = action.get('tool')
-                    params = action.get('param')
+                    param = action.get('param')
 
                     if function_name in api_functions:
-                        if params:
-                            function_result = api_functions[function_name]['method'](params)
+                        if param:
+                            function_result = api_functions[function_name]['method'](param)
                         else:
                             function_result = api_functions[function_name]['method']()
-                        response = conversation.prompt(f"Function result: {function_result}") # Pass the result back.
-                        print(f"Function result: {function_result}")
+                        function_result_json = json.dumps(function_result)
+                        response = conversation.prompt(f"Function result: {function_result_json}")
+                        print(f"Function result: {function_result_json}")
                     else:
-                        response = conversation.prompt("Unknown function.")
-                        print("Unknown function.")
+                        response = conversation.prompt('Unknown function.')
+                        print('Unknown function.')
                 except Exception as e:
                     response = conversation.prompt(f"Error calling function: {e}")
                     print(f"Error calling function: {e}")
 
                 action = extract_action_from_response(response)
             
-            if action['type'] == "output":
+            if action['type'] == 'output':
                 print(f"Agent: {action['value']}")
 
     chat_loop()
 
-if __name__ == "__main__":
-    start_chat(model="gemini-2.0-flash")
+if __name__ == '__main__':
+    start_chat(model='gemini-2.0-flash')
