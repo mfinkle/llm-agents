@@ -33,7 +33,7 @@ def get_datetime():
 def calculate(expression):
     """Calculates the given mathematical expression."""
     try:
-        result = eval(expression)
+        result = eval(expression, {'__builtins__': {}}, {})
         return { 'result': result, 'status': 'success' }
     except (SyntaxError, NameError, TypeError, ZeroDivisionError) as e:
         return { 'result': None, 'status': 'fail' }
