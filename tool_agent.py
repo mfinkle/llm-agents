@@ -237,6 +237,7 @@ def start_chat(model):
         You are a helpful assistant that can answer various tasks.
         User inputs will be passed as plain text.
         
+        ALWAYS use reasoning. First think through the problem step-by-step, then decide what action to take.
         
         All responses MUST use JSON format with this structure:
         {{
