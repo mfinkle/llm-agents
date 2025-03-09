@@ -1,6 +1,6 @@
 # Tool Agent
 
-The `tool_agent` is a Python script that implements a conversational agent with tool-calling capabilities and Chain of Thought reasoning. It allows users to interact with an AI assistant that can access various tools or functions to help answer queries and solve tasks.
+The `tool_agent` is a Python script that implements a conversational agent with tool-calling capabilities and "Reasoning & Action" (ReAct)reasoning strategy. It allows users to interact with an AI assistant that can access various tools or functions to help answer queries and solve tasks.
 
 ## How It Works
 
@@ -28,9 +28,9 @@ Each tool function is registered in an `api_functions` dictionary with metadata 
 
 The metadata is used to build context for the system prompt as an XML-formatted tool registry.
 
-### Chain of Thought Reasoning
+### Reasoning & Action (ReAct)
 
-The tool agent implements Chain of Thought (CoT) reasoning, which enables more reliable problem-solving:
+The tool agent implements a ReAct reasoning strategy, combined with Few-shot prompting, which enables more reliable problem-solving:
 
 1. **Explicit Reasoning**: The model articulates its step-by-step thinking process
 2. **Transparent Decision Making**: The reasoning process is visible to users via the "thought" field

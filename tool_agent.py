@@ -71,19 +71,12 @@ def get_available_appointments(specialty):
     ]
     return open_appointments
 
-def book_appointment(booking_data):
+def book_appointment(appointment_id):
     """Books the given appointment."""
     for appointment in appointments_data:
-        if appointment['open']:
-            # Check if we're matching by ID or by date+time
-            if ('id' in booking_data and appointment['id'] == booking_data['id']):
-                appointment['open'] = False
-                return { 'status': 'success', 'message': 'Appointment booked successfully.' }
-
-            if ('date' in booking_data and 'time' in booking_data and appointment['date'] == booking_data['date'] and appointment['time'] == booking_data['time']):
-                appointment['open'] = False
-                return { 'status': 'success', 'message': 'Appointment booked successfully.' }
-
+        if appointment['open'] and appointment['id'] == appointment_id:
+            appointment['open'] = False
+            return { 'status': 'success', 'message': 'Appointment booked successfully.' }
     return { 'status': 'fail', 'message': 'Appointment not available.' }
 
 def get_my_appointments():
@@ -138,7 +131,7 @@ api_functions = {
     },
     'book_appointment': {
         'method': book_appointment,
-        'description': 'Books the given appointment. Example: { "type": "call_tool", "tool": "book_appointment", "param": {"date": "2022-01-01", "time": "10:00 AM"} }',
+        'description': 'Books the given appointment with the given ID. Example: { "type": "call_tool", "tool": "book_appointment", "param": "1" }',
         'response': 'Returns the status of the booking. Example: {"status": "success", "message": "Appointment booked successfully."}'
     },
     'get_my_appointments': {
@@ -244,8 +237,6 @@ def start_chat(model):
         You are a helpful assistant that can answer various tasks.
         User inputs will be passed as plain text.
         
-        ALWAYS use Chain of Thought reasoning. First think through the problem step-by-step, 
-        then decide what action to take.
         
         All responses MUST use JSON format with this structure:
         {{

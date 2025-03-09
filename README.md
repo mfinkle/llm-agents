@@ -40,7 +40,7 @@ The `tool_agent.py` script is designed to interact with various tools and perfor
 
 Key features of the Tool Agent:
 
-- **Chain of Thought Reasoning**: The agent implements a Chain of Thought approach that allows the LLM to "think aloud" before taking actions. This improves decision-making and provides transparency into the agent's reasoning process.
+- **Planning & Reasoning**: The agent implements a Reason & Act (ReAct) approach that allows the LLM to "think aloud" before taking actions. This improves decision-making and provides transparency into the agent's reasoning process.
 
 - **Validation**: The agent includes a validation system that handles JSON parsing errors and structure validation with multiple retry attempts, making it more resilient to prompt failures.
 
