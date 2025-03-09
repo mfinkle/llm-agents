@@ -5,16 +5,9 @@ import llm
 
 # TODO: Add a human feedback mechanism (thumbs up/down) to improve the model
 # TODO: Save positive & negative feedback to a file for future training
+# TODO: Improve the get_relevant_program_topics_from_input system prompt and pass in more context
 
 # Define the tool functions available to the agent
-
-def search_web(query):
-    """Searches the web for the given query."""
-    return [
-        {'title': 'Result 1', 'url': 'http://www.example.com/result1'},
-        {'title': 'Result 2', 'url': 'http://www.example.com/result2'},
-        {'title': 'Result 3', 'url': 'http://www.example.com/result3'}
-    ]
 
 def get_weather(zipcode):
     """Gets the weather for the given city."""
@@ -64,7 +57,7 @@ appointments_data = [
     {'id': '13', 'date': next_week.strftime('%Y-%m-%d'), 'time': '3:00 PM', 'specialty': 'hair', 'open': True},
 ]
 
-def get_specialties():
+def get_appointment_specialties():
     """Gets the list of available specialties."""
     specialties = list(set([appointment['specialty'] for appointment in appointments_data]))
     return specialties
@@ -113,54 +106,49 @@ def cancel_appointment(appointment_id):
 
 # Create a registry of tool functions available to the agent
 api_functions = {
-    'search_web': {
-        'method': search_web,
-        'description': 'Searches the web for the given query. Example: { "type": "call_function", "tool": "search_web", "param": "python programming" }',
-        'response': 'Returns a list of search results with titles and urls. Example: [{"title": "Result 1", "url": "http://www.example.com/result1"}]'
-    },
     'get_weather': {
         'method': get_weather,
-        'description': 'Gets the weather for the given zipcode. Example: { "type": "call_function", "tool": "get_weather", "param": "90210" }',
+        'description': 'Gets the weather for the given zipcode. Example: { "type": "call_tool", "tool": "get_weather", "param": "90210" }',
         'response': 'Returns the temperature and conditions. Example: {"temperature": "75 F", "conditions": "Sunny"}'
     },
     'get_zipcode': {
         'method': get_zipcode,
-        'description': 'Gets the zipcode for the given city. Example: { "type": "call_function", "tool": "get_zipcode", "param": "Beverly Hills" }',
+        'description': 'Gets the zipcode for the given city. Example: { "type": "call_tool", "tool": "get_zipcode", "param": "Beverly Hills" }',
         'response': 'Returns the zipcode. Example: {"zipcode": "90210"}'
     },
     'calculate': {
         'method': calculate,
-        'description': 'Calculates the given mathematical expression. Example: { "type": "call_function", "tool": "calculate", "param": "2 + 2" }',
+        'description': 'Calculates the given mathematical expression. Example: { "type": "call_tool", "tool": "calculate", "param": "2 + 2" }',
         'response': 'Returns the result of the calculation. Example: {"result": 4, "status": "success"}'
     },
     'get_datetime': {
         'method': get_datetime,
-        'description': 'Gets the current date and time. Example: { "type": "call_function", "tool": "get_datetime" }',
+        'description': 'Gets the current date and time. Example: { "type": "call_tool", "tool": "get_datetime" }',
         'response': 'Returns the current date and time. Example: {"date": "2022-01-01", "time": "12:00 PM"}'
     },
-    'get_specialties': {
-        'method': get_specialties,
-        'description': 'Gets the list of available specialties for scheduling appointments. Example: { "type": "call_function", "tool": "get_specialties" }',
+    'get_appointment_specialties': {
+        'method': get_appointment_specialties,
+        'description': 'Gets the list of available specialties for scheduling appointments. Example: { "type": "call_tool", "tool": "get_appointment_specialties" }',
         'response': 'Returns a list of specialties. Example: ["dentist", "vision"]'
     },
     'get_available_appointments': {
         'method': get_available_appointments,
-        'description': 'Gets the available appointments for the given specialty. Example: { "type": "call_function", "tool": "get_available_appointments", "param": "dentist" }',
+        'description': 'Gets the available appointments for the given specialty. Example: { "type": "call_tool", "tool": "get_available_appointments", "param": "dentist" }',
         'response': 'Returns a list of available appointments. Example: [{"id": "1", "date": "2022-01-01", "time": "10:00 AM"}]'
     },
     'book_appointment': {
         'method': book_appointment,
-        'description': 'Books the given appointment. Example: { "type": "call_function", "tool": "book_appointment", "param": {"date": "2022-01-01", "time": "10:00 AM"} }',
+        'description': 'Books the given appointment. Example: { "type": "call_tool", "tool": "book_appointment", "param": {"date": "2022-01-01", "time": "10:00 AM"} }',
         'response': 'Returns the status of the booking. Example: {"status": "success", "message": "Appointment booked successfully."}'
     },
     'get_my_appointments': {
         'method': get_my_appointments,
-        'description': 'Gets the appointments booked by the user. Example: { "type": "call_function", "tool": "get_my_appointments" }',
+        'description': 'Gets the appointments booked by the user. Example: { "type": "call_tool", "tool": "get_my_appointments" }',
         'response': 'Returns a list of booked appointments. Example: [{"id": "1", "date": "2022-01-01", "time": "10:00 AM", "specialty": "dentist"}]'
     },
     'cancel_appointment': {
         'method': cancel_appointment,
-        'description': 'Cancels the appointment with the given ID. Example: { "type": "call_function", "tool": "cancel_appointment", "param": "1" }',
+        'description': 'Cancels the appointment with the given ID. Example: { "type": "call_tool", "tool": "cancel_appointment", "param": "1" }',
         'response': 'Returns the status of the cancellation. Example: {"status": "success", "message": "Appointment canceled successfully."}'
     }
 }
@@ -171,9 +159,17 @@ def extract_action_from_response(response):
     action_raw = response.text().strip()
     print(f"Action raw: {action_raw}")
 
-    # Remove fenced code block if it exists. Models don't obey the prompt format.
-    action_raw = re.sub(r'^```json|```$', '', action_raw, flags=re.MULTILINE).strip()
-    return json.loads(action_raw)
+    try:
+        # Remove fenced code block if it exists. Models don't always obey the prompt format.
+        action_raw = re.sub(r'^```json|```$', '', action_raw, flags=re.MULTILINE).strip()
+        
+        # Try to parse the JSON
+        action = json.loads(action_raw)
+        return action, True
+        
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error: {str(e)}")
+        return None, False
 
 
 # Validate the LLM response so we can give it corrective feedback
@@ -184,18 +180,57 @@ def validate_action(action):
     if 'type' not in action:
         return False, 'Response must have a "type" field'
     
-    if action['type'] not in ['output', 'call_function']:
-        return False, 'Type field must be "output" or "call_function"'
+    if action['type'] not in ['output', 'call_tool']:
+        return False, 'Type field must be "output" or "call_tool"'
     
-    if action['type'] == 'call_function':
+    # Thought is optional but recommended
+    
+    if action['type'] == 'call_tool':
         if 'tool' not in action:
-            return False, 'Function call must have a "tool" field'
+            return False, 'Tool call must have a "tool" field'
     
     if action['type'] == 'output':
         if 'value' not in action:
             return False, 'Output must have a "value" field'
     
     return True, ''
+
+
+# Process and validate a model response, with multiple attempts if needed
+def validate_model_response(conversation, response, max_attempts=3):
+    attempts = 0
+    
+    while attempts < max_attempts:
+        extracted_action, json_success = extract_action_from_response(response)
+        
+        # If JSON parsing failed
+        if not json_success:
+            attempts += 1
+            if attempts >= max_attempts:
+                # Return fallback action
+                return {'type': 'output', 'value': 'I apologize, but I\'m having trouble understanding. Could you rephrase your request?'}, False
+            
+            # Ask for correctly formatted JSON
+            correction_prompt = "Your response was not valid JSON. Please provide a valid JSON response with the required structure."
+            response = conversation.prompt(correction_prompt)
+            continue
+        
+        # JSON parsed successfully, now validate the structure
+        valid, error_message = validate_action(extracted_action)
+        if valid:
+            return extracted_action, True
+        else:
+            attempts += 1
+            if attempts >= max_attempts:
+                # Return fallback action
+                return {'type': 'output', 'value': 'I apologize, but I\'m having trouble processing your request.'}, False
+            
+            # Ask for correctly structured response
+            correction_prompt = f"Your response format was invalid: {error_message}. Please provide a valid JSON response with the correct structure."
+            response = conversation.prompt(correction_prompt)
+    
+    # This should never be reached but just in case
+    return {'type': 'output', 'value': 'Something went wrong with my processing.'}, False
 
 
 # Start the chat with the agent
@@ -208,9 +243,33 @@ def start_chat(model):
     initial_prompt = f"""
         You are a helpful assistant that can answer various tasks.
         User inputs will be passed as plain text.
-        All responses MUST use JSON format. You can reply with output, for example {{"type": "output", "value": "text of your response"}}.
-        Or you can request a function call by replying with {{"type": "call_function", "tool": "function_name", "param": "function_parameters"}}.
-        Here are the set to tools you can call:
+        
+        ALWAYS use Chain of Thought reasoning. First think through the problem step-by-step, 
+        then decide what action to take.
+        
+        All responses MUST use JSON format with this structure:
+        {{
+          "thought": "Your step-by-step reasoning here, analyzing the problem and determining what to do...",
+          "type": "output or call_tool",
+          ... other fields depending on type
+        }}
+        
+        For tool calls, use:
+        {{
+          "thought": "Your reasoning for choosing this tool...",
+          "type": "call_tool",
+          "tool": "tool_name",
+          "param": "tool_parameters"
+        }}
+        
+        For direct responses to the user, use:
+        {{
+          "thought": "Your reasoning for this response...",
+          "type": "output",
+          "value": "text of your response"
+        }}
+        
+        Here are the tools you can call:
         {tool_registry_xml}
         """
 
@@ -225,53 +284,57 @@ def start_chat(model):
                 print('Goodbye!')
                 break
 
+            # Get initial response
             response = conversation.prompt(user_input)
-            action = extract_action_from_response(response)
-
-            # Validate the action
-            attempts = 0
-            valid, error_message = validate_action(action)
-            while not valid:
-                attempts += 1
-                correction_prompt = f"Your response was not properly formatted. {error_message}. Please provide a valid JSON response with the correct format."
-                response = conversation.prompt(correction_prompt)
-                try:
-                    action = extract_action_from_response(response)
-                    valid, error_message = validate_action(action)
-                except json.JSONDecodeError:
-                    conversation.prompt('Your response was not valid JSON. Please provide a valid JSON response')
-
-                # If the agent fails to provide a valid response after 3 attempts, apologize and ask for the request again
-                if attempts >= 3:
-                    action = {'type': 'output', 'value': 'I apologize, but could you please repeat your request?'}
-                    valid = True
-
-            # Check for API function calls
-            while action['type'] == 'call_function':
-                try:
-                    # Extract the function call from the response
+            
+            # Validate the initial response
+            action, success = validate_model_response(conversation, response)
+            
+            try:
+                # Display the thought process if present
+                if 'thought' in action:
+                    print(f"Thought: {action['thought']}")
+                
+                # Process tool calls
+                while action['type'] == 'call_tool':
                     function_name = action.get('tool')
                     param = action.get('param')
-
-                    if function_name in api_functions:
-                        if param:
-                            function_result = api_functions[function_name]['method'](param)
+                    
+                    try:
+                        if function_name in api_functions:
+                            if param:
+                                function_result = api_functions[function_name]['method'](param)
+                            else:
+                                function_result = api_functions[function_name]['method']()
+                            
+                            function_result_json = json.dumps(function_result)
+                            print(f"Tool result: {function_result_json}")
+                            response = conversation.prompt(f"Tool result: {function_result_json}")
                         else:
-                            function_result = api_functions[function_name]['method']()
-                        function_result_json = json.dumps(function_result)
-                        response = conversation.prompt(f"Function result: {function_result_json}")
-                        print(f"Function result: {function_result_json}")
-                    else:
-                        response = conversation.prompt('Unknown function.')
-                        print('Unknown function.')
-                except Exception as e:
-                    response = conversation.prompt(f"Error calling function: {e}")
-                    print(f"Error calling function: {e}")
+                            print("Unknown tool.")
+                            response = conversation.prompt('Unknown tool. Please try a different approach.')
+                            
+                    except Exception as e:
+                        print(f"Error calling tool: {e}")
+                        response = conversation.prompt(f"Error calling tool: {e}. Please try a different approach.")
 
-                action = extract_action_from_response(response)
-            
-            if action['type'] == 'output':
-                print(f"Agent: {action['value']}")
+                    # Validate next action after tool call - reuse the validation helper
+                    action, success = validate_model_response(conversation, response)
+                    
+                    # Display updated thought process
+                    if 'thought' in action:
+                        print(f"Thought: {action['thought']}")
+                    
+                    # Break out if we switched to output type or validation failed
+                    if action['type'] != 'call_tool' or not success:
+                        break
+
+                # Handle the final output
+                if action['type'] == 'output':
+                    print(f"Agent: {action['value']}")
+                                            
+            except Exception as e:
+                print(f"Error in processing: {str(e)}")
 
     chat_loop()
 
