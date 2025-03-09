@@ -3,6 +3,9 @@ import json
 import re
 import llm
 
+# TODO: Add a human feedback mechanism (thumbs up/down) to improve the model
+# TODO: Save positive & negative feedback to a file for future training
+
 # Define the tool functions available to the agent
 
 def search_web(query):
@@ -173,6 +176,28 @@ def extract_action_from_response(response):
     return json.loads(action_raw)
 
 
+# Validate the LLM response so we can give it corrective feedback
+def validate_action(action):
+    if not isinstance(action, dict):
+        return False, 'Response must be a JSON object'
+    
+    if 'type' not in action:
+        return False, 'Response must have a "type" field'
+    
+    if action['type'] not in ['output', 'call_function']:
+        return False, 'Type field must be "output" or "call_function"'
+    
+    if action['type'] == 'call_function':
+        if 'tool' not in action:
+            return False, 'Function call must have a "tool" field'
+    
+    if action['type'] == 'output':
+        if 'value' not in action:
+            return False, 'Output must have a "value" field'
+    
+    return True, ''
+
+
 # Start the chat with the agent
 def start_chat(model):
     tool_registry = '\n'.join([f"<tool><name>{name}</name><description>{details['description']}</description><response>{details['response']}</response></tool>" for name, details in api_functions.items()])
@@ -202,6 +227,24 @@ def start_chat(model):
 
             response = conversation.prompt(user_input)
             action = extract_action_from_response(response)
+
+            # Validate the action
+            attempts = 0
+            valid, error_message = validate_action(action)
+            while not valid:
+                attempts += 1
+                correction_prompt = f"Your response was not properly formatted. {error_message}. Please provide a valid JSON response with the correct format."
+                response = conversation.prompt(correction_prompt)
+                try:
+                    action = extract_action_from_response(response)
+                    valid, error_message = validate_action(action)
+                except json.JSONDecodeError:
+                    conversation.prompt('Your response was not valid JSON. Please provide a valid JSON response')
+
+                # If the agent fails to provide a valid response after 3 attempts, apologize and ask for the request again
+                if attempts >= 3:
+                    action = {'type': 'output', 'value': 'I apologize, but could you please repeat your request?'}
+                    valid = True
 
             # Check for API function calls
             while action['type'] == 'call_function':
