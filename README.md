@@ -38,6 +38,18 @@ pip install -r requirements.txt
 
 The `tool_agent.py` script is designed to interact with various tools and perform automated tasks. Everything is self contained within the single Python script. The "tool" functions are mocked stand-ins for actual network connected tools. The purpose of the script is to visualize how to connect tools to an LLM and have the LLM use the tools to perform tasks and actions.
 
+Key features of the Tool Agent:
+
+- **Chain of Thought Reasoning**: The agent implements a Chain of Thought approach that allows the LLM to "think aloud" before taking actions. This improves decision-making and provides transparency into the agent's reasoning process.
+
+- **Validation**: The agent includes a validation system that handles JSON parsing errors and structure validation with multiple retry attempts, making it more resilient to prompt failures.
+
+- **Tool Registry**: Tools are registered with detailed metadata including descriptions, usage examples, and expected responses, which are used to build a structured XML tool registry for the LLM.
+
+- **Simple Dialogue Loop**: The agent implements a straightforward chat loop that processes user input, validates LLM responses, executes tool calls, and displays results in a conversational format.
+
+- **Various Mock Tools**: Includes several mock tools for weather data, appointment scheduling, and more to demonstrate tool-calling capabilities.
+
 [tool_agent readme](tool_agent.md)
 
 To run the tool agent, use the following command:
