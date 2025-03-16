@@ -1,6 +1,11 @@
 # LLM Agents
 
-This repository contains two main agents: `tool_agent.py` and `web_agent.py`. These agents are designed to perform specific tasks using large language models (LLMs). These scripts are really a basic exploration into the agent space. I want to learn some of the basic, hard truths of trying to build raw agents _before_ moving on to leverage full-blown frameworks that hide the details. These scripts purposefully using the bare minimum number of dependencies.
+This repository contains two agents: `tool_agent.py` and `web_agent.py`. These agents are designed to perform specific tasks using large language models (LLMs). The project is really a basic exploration into the agent space. I wanted to learn some of the basic, hard truths of trying to build raw agents _before_ moving on to leverage full-blown frameworks that hide the details. These agents are purposefully using the bare minimum number of dependencies.
+
+Some background and details on the project:
+- [Exploring LLMs as Agents: A Minimalist Approach](https://starkravingfinkle.org/blog/2025/03/exploring-llms-as-agents-a-minimalist-approach/)
+- [Exploring LLMs as Agents: Taking Action](https://starkravingfinkle.org/blog/2025/03/exploring-llms-as-agents-taking-action/)
+- [Exploring LLMs as Agents: Planning via Prompting](https://starkravingfinkle.org/blog/2025/03/exploring-llms-as-agents-planning-via-prompting/)
 
 ## Setup
 ### Using a Virtual Environment
@@ -9,14 +14,14 @@ It is a good practice to use a Python virtual environment to manage dependencies
 
 On macOS and Linux:
 ```
-python3 -m venv env
-source env/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 ```
 
 On Windows:
 ```
-python -m venv env
-.\env\Scripts\activate
+python -m venv venv
+.\venv\Scripts\activate
 ```
 
 Once the virtual environment is activated, you can install the necessary dependencies.
@@ -36,26 +41,40 @@ pip install -r requirements.txt
 
 ### Tool Agent
 
-The `tool_agent.py` script is designed to interact with various tools and perform automated tasks. Everything is self contained within the single Python script. The "tool" functions are mocked stand-ins for actual network connected tools. The purpose of the script is to visualize how to connect tools to an LLM and have the LLM use the tools to perform tasks and actions.
+The `tool_agent.py` script provides a reusable `ToolAgent` class that can interact with various tools and perform automated tasks. The class is designed to be modular, extensible, and easy to integrate into other applications.
 
-Key features of the Tool Agent:
+Features of the Tool Agent:
 
-- **Planning & Reasoning**: The agent implements a Reason & Act (ReAct) approach that allows the LLM to "think aloud" before taking actions. This improves decision-making and provides transparency into the agent's reasoning process.
-
-- **Validation**: The agent includes a validation system that handles JSON parsing errors and structure validation with multiple retry attempts, making it more resilient to prompt failures.
-
-- **Tool Registry**: Tools are registered with detailed metadata including descriptions, usage examples, and expected responses, which are used to build a structured XML tool registry for the LLM.
-
-- **Simple Dialogue Loop**: The agent implements a straightforward chat loop that processes user input, validates LLM responses, executes tool calls, and displays results in a conversational format.
-
-- **Various Mock Tools**: Includes several mock tools for weather data, appointment scheduling, and more to demonstrate tool-calling capabilities.
+- **Class-Based Architecture** - Modular design that can be extended and integrated into other applications
+- **Tool Provider & Registry** - Organized collection of tools via provider classes. Tools registered with detailed metadata and structured XML documentation
+- **ReAct Reasoning** - Transparent step-by-step reasoning process for better problem-solving  
+- **Validation** - Handles JSON parsing errors and schema validation with multiple retry attempts
+- **Token Usage Tracking** - Built-in tracking of input and output tokens for monitoring usage and costs
 
 [tool_agent readme](tool_agent.md)
 
-To run the tool agent, use the following command:
+#### Running the Tool Agent
 
+You can use the Tool Agent in several ways:
+
+1. Interactive chat mode:
 ```
-python tool_agent.py
+python tool_agent_test.py
+```
+
+2. Benchmark the agent's performance with a simple set of tests:
+```
+python tool_agent_benchmark.py --verbose
+```
+
+3. Import the class in your own scripts:
+```python
+from tool_agent import ToolAgent
+
+agent = ToolAgent(model_name='gemini-2.0-flash')
+conversation = agent.create_conversation()
+result = agent.process_message(conversation, "What is the weather in 94105?")
+print(result['text'])
 ```
 
 ### Web Agent
