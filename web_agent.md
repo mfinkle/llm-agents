@@ -1,51 +1,118 @@
 # Web Agent
 
-The `web_agent` is a Python script designed to automate interactions with web pages using the Playwright library. It leverages a language model (LLM) to generate actions based on the HTML content of the current page and the specified task. The agent can perform various actions such as clicking buttons, typing text, navigating to new pages, and extracting information from the page.
+The `WebAgent` is a browser automation agent built on `ToolAgent`. It uses an LLM along with Playwright to automate web interactions, allowing for complex web-based tasks to be completed through natural language instructions.
 
-There are two flavors of web agent: non-conversational and conversational
-* The non-conversational agent does not really have any memory of its actions and progress. Any previous information and context must be passed into the LLM for every prompt. This limits the abilities of the agent and puts more work on us to supply context.
-* The conversational agent uses the LLM's conversation mode to maintain a basic memory of the entire flow. The large system prompt is not needed on every invocation. The results of every action are available to the LLM by simply adding the results to the conversation.
+## Features
+
+- **Browser Automation**: Navigate, click, type, and interact with web elements
+- **Tool-Based Architecture**: Uses the `ToolAgent` and `ToolProvider` framework
+- **Element Detection**: Tries to intelligently identify interactive elements on web pages
+- **Content Extraction**: Extracts and formats page content for better LLM understanding, and minimizing input token usage
+- **Structured Output**: Provides summarized results of web actions
+
+## Architecture
+
+The web agent system is composed of two main components:
+
+### 1. PageManagerToolProvider
+
+This class is a `ToolProvider` implementation that wraps Playwright's browser automation capabilities as tools:
+
+- **Browser Management**: Handles browser initialization, page navigation, and cleanup
+- **Element Interaction**: Provides tools to click, type, and extract data from web elements
+- **Content Processing**: Extracts relevant elements from pages while filtering out noise
+- **Visibility Detection**: Filters out invisible elements to focus on actionable content
+- **CSS Selector Support**: Uses standard CSS selectors for element identification
+
+### 2. WebAgent
+
+This class extends the `ToolAgent` class to support running web automation tasks:
+
+- **Task Execution**: Processes user tasks using the `run_task` method
+- **Specialized Prompting**: Uses web-specific prompt templates to guide the LLM
+- **Completion Indicators**: Detects task completion through specific output phrases
+- **Performance Tracking**: Measures token usage and execution time
+
+## Available Web Tools
+
+The `PageManagerToolProvider` exposes the following tools:
+
+| Tool Name | Description | Parameters |
+|-----------|-------------|------------|
+| `navigate` | Navigate to a URL | `string` URL to navigate to |
+| `click` | Click on an element | `string` CSS selector |
+| `type_text` | Type text into a field | `object` with `selector` and `text` |
+| `get_text` | Get text from an element | `string` CSS selector |
+| `get_title` | Get page title | None |
+| `get_current_url` | Get current URL | None |
+| `wait_for_navigation` | Wait for navigation to complete | None |
+| `wait_seconds` | Wait for specified time | `number` seconds |
+| `get_page_content` | Get simplified page content | None |
 
 ## How It Works
 
-### PageManager Class
+### Task Processing Flow
 
-The `PageManager` class is responsible for managing the Playwright browser and page interactions. It provides methods to perform common actions on web pages:
+1. **Initialization**: The `WebAgent` initializes with a specified LLM model and registers the `PageManagerToolProvider`
+2. **Task Submission**: User submits a task via the `run_task` method
+3. **Conversation Creation**: A new conversation is created with web-specific instructions
+4. **LLM Processing**: The task is sent to the LLM, which analyzes it and decides what actions to take
+5. **Tool Execution**: The LLM calls appropriate web tools, which execute browser actions
+6. **Result Processing**: The LLM receives tool results and uses them for subsequent decisions
+7. **Task Completion**: When the task is complete, the LLM outputs a summary with "task complete"
 
-- `goto(url)`: Navigates to the specified URL.
-- `click(selector)`: Clicks on an element identified by the CSS selector.
-- `type(selector, text)`: Types the specified text into an input element identified by the CSS selector.
-- `get_value(selector)`: Retrieves the value of an input element identified by the CSS selector.
-- `get_text(selector)`: Retrieves the inner text of an element identified by the CSS selector.
-- `get_title()`: Retrieves the title of the current page.
-- `wait(seconds)`: Waits for the specified number of seconds.
-- `get_content()`: Retrieves the HTML content of the current page.
-- `close()`: Closes the browser and stops Playwright.
+### Page Content Extraction
 
-### web_agent Function
+The `get_page_content` tool:
+1. Identifies important elements matching specific CSS selectors
+2. Processes each element to extract tag name, attributes, and text content
+3. Filters out invisible elements and duplicates
+4. Creates simplified HTML representations
+5. Returns a structured view of the page focused on interactive elements
 
-The `web_agent` function interacts with a web page to complete a specified task. It uses the `PageManager` class to perform actions on the page and an LLM to generate the next action based on the current state of the page and the task.
+## Usage Examples
 
-1. **Initialization**: The function initializes the `PageManager` and navigates to the initial URL if provided.
-2. **Generate Next Action**: The function generates the next action by prompting the LLM with the current state of the page and the task. The LLM returns a single action in plain text.
-3. **Execute Action**: The function executes the generated action using the `PageManager` and updates the current state with the result.
-4. **Repeat**: The function repeats the process of generating and executing actions until the task is completed.
-
-### web_agent_conversation Function
-
-The `web_agent_conversation` function is similar to `web_agent` but uses the LLM's conversation mode to maintain context across multiple interactions. It follows these steps:
-
-1. **Initialization**: The function initializes the `PageManager` and navigates to the initial URL if provided.
-2. **Initial Prompt**: The function sends an initial prompt to the LLM to start the conversation.
-3. **Generate and Execute Actions**: The function generates and executes actions in a loop, updating the conversation with the results of each action.
-4. **Verify Task Completion**: The function verifies if the task is completed by checking the HTML content. If the task is completed, it ends the conversation.
-5. **Print Responses**: The function prints all responses from the conversation and explains how the task was completed.
-
-### Example Usage
+### Basic Usage
 
 ```python
-task = "Search for 'LLM agents' and return the first result's title."
-web_agent_conversation("gemini-2.0-flash", task, "https://duckduckgo.com/")
+from web_agent import WebAgent
+
+# Create a web agent with specified model
+agent = WebAgent(model_name="gemini-2.0-flash")
+
+try:
+    # Run a task
+    result = agent.run_task(
+        "Navigate to duckduckgo.com, search for 'climate news', and return the titles of the first 3 results"
+    )
+    
+    # Print the result
+    print(result["final_response"])
+finally:
+    # Clean up resources
+    agent.close()
 ```
 
-In this example, the `web_agent_conversation` function is used to search for "LLM agents" on DuckDuckGo and return the title of the first result. The function initializes the `PageManager`, starts a conversation with the LLM, and performs actions to complete the task.
+### Command Line Usage
+```bash
+python web_agent.py "Go to wikipedia.org and find the featured article of the day"
+```
+
+### Usage with an Initial URL
+```python
+agent = WebAgent(model_name="gemini-2.0-flash")
+
+# Navigate to a starting URL
+agent.web_provider.navigate("https://www.example.com")
+
+# Run a complex task
+result = agent.run_task("Find the contact form, fill it out with mock data, and confirm submission")
+
+# Analyze the interaction log
+for entry in result["log"]:
+    if entry["stage"] == "tool_call":
+        print(f"Tool used: {entry['tool']}")
+
+# Check token usage
+print(f"Total tokens used: {result['token_usage']['input'] + result['token_usage']['output']}")
+```
