@@ -1,282 +1,479 @@
-from playwright.sync_api import sync_playwright
-import llm
 import time
-import json
 import re
+import datetime
+import sys
 
-# Class to manage a web page and interact with it
-class PageManager:
+from tool_provider import ToolProvider
+from tool_agent import ToolAgent
+from playwright.sync_api import sync_playwright
+
+class PageManagerToolProvider(ToolProvider):
+    """Tool provider that exposes web browser automation capabilities"""
+    
     def __init__(self, headless=False):
+        """Initialize the page manager with a browser instance"""
+        self.headless = headless
+        self.playwright = None
+        self.browser = None
+        self.page = None
+
+        self.page_content_maybe_dirty = True
+
+        # Initialize the parent ToolProvider
+        super().__init__()
+
+    
+    def _initialize_data(self):
+        """Initialize the page manager with a browser instance"""
         self.playwright = sync_playwright().start()
-        self.browser = self.playwright.chromium.launch(headless=headless)
+        self.browser = self.playwright.chromium.launch(headless=self.headless)
         self.page = self.browser.new_page()
-
+    
+    def get_tools(self):
+        """Return web automation tools"""
+        return {
+            'navigate': {
+                'method': self.navigate,
+                'description': 'Navigate to a URL. Parameter should be a string containing the URL. Example: { "type": "call_tool", "tool": "navigate", "param": "https://www.example.com" }',
+                'response': 'Returns navigation result. Example: {"status": "success"}',
+                'param_info': {
+                    'required': True,
+                    'type': 'string',
+                    'description': 'URL to navigate to'
+                }
+            },
+            'click': {
+                'method': self.click,
+                'description': 'Click on an element, like a "button" or "a" link. Parameter should be a string containing a CSS selector. Example: { "type": "call_tool", "tool": "click", "param": "#submit-button" }',
+                'response': 'Returns click result. Example: {"status": "success"} or {"status": "error", "message": "Element not found"}',
+                'param_info': {
+                    'required': True,
+                    'type': 'string',
+                    'description': 'CSS selector for the element to click'
+                }
+            },
+            'type_text': {
+                'method': self.type_text,
+                'description': 'Type text into an "input" or "textarea" field. Parameter should be an object with "selector" and "text" fields. Example: { "type": "call_tool", "tool": "type_text", "param": {"selector": "#search-input", "text": "search query"} }',
+                'response': 'Returns typing result. Example: {"status": "success"} or {"status": "error", "message": "Element not found"}',
+                'param_info': {
+                    'required': True,
+                    'type': 'object',
+                    'description': 'Object containing selector and text to type',
+                    'schema': {
+                        'selector': 'CSS selector for the "input" or "textarea" element',
+                        'text': 'Text to type into the element'
+                    }
+                }
+            },
+            'get_text': {
+                'method': self.get_text,
+                'description': 'Get inner text content from an element. Parameter should be a string containing a CSS selector. Example: { "type": "call_tool", "tool": "get_text", "param": ".article-title" }',
+                'response': 'Returns the text content. Example: {"text": "Example Title"}',
+                'param_info': {
+                    'required': True,
+                    'type': 'string',
+                    'description': 'CSS selector for the element'
+                }
+            },
+            'get_title': {
+                'method': self.get_title,
+                'description': 'Get the title of the current page. No parameter needed. Example: { "type": "call_tool", "tool": "get_title" }',
+                'response': 'Returns the page title. Example: {"title": "Example Page"}',
+                'param_info': {
+                    'required': False,
+                    'type': None,
+                    'description': 'No parameter needed'
+                }
+            },
+            'get_current_url': {
+                'method': self.get_current_url,
+                'description': 'Get the current URL of the page. No parameter needed. Example: { "type": "call_tool", "tool": "get_current_url" }',
+                'response': 'Returns the current URL. Example: {"url": "https://www.example.com"}',
+                'param_info': {
+                    'required': False,
+                    'type': None,
+                    'description': 'No parameter needed'
+                }
+            },
+            'wait_for_navigation': {
+                'method': self.wait_for_navigation,
+                'description': 'Wait for page navigation to complete. No parameter needed. Example: { "type": "call_tool", "tool": "wait_for_navigation" }',
+                'response': 'Returns status after waiting. Example: {"status": "success"}',
+                'param_info': {
+                    'required': False,
+                    'type': None,
+                    'description': 'No parameter needed'
+                }
+            },
+            'wait_seconds': {
+                'method': self.wait_seconds,
+                'description': 'Wait for a specified number of seconds. Parameter should be a number. Example: { "type": "call_tool", "tool": "wait_seconds", "param": 2 }',
+                'response': 'Returns status after waiting. Example: {"status": "success"}',
+                'param_info': {
+                    'required': True,
+                    'type': 'string',
+                    'description': 'Number of seconds to wait (integer)'
+                }
+            },
+            'get_page_content': {
+                'method': self.get_page_content,
+                'description': 'Get the HTML content of the current page. No parameter needed. Example: { "type": "call_tool", "tool": "get_page_content" }',
+                'response': 'Returns the HTML content. Example: {"content": "raw content of the page"}',
+                'param_info': {
+                    'required': False,
+                    'type': None,
+                    'description': 'No parameter needed'
+                }
+            }
+        }
+    
     def _get_locator_count(self, selector, expected_count=1):
+        """Check if a selector returns the expected number of elements"""
         count = self.page.locator(selector).count()
-        if count != expected_count:
-            if count == 0:
-                return False, 'FAILED: Element not found. Is this a valid CSS selector?'
-            elif count > expected_count and expected_count == 1:
-                return False, 'FAILED: Multiple elements found. Please use a better CSS selector.'
-        return True, ''
-
-    def goto(self, url):
-        self.page.goto(url)
-
+        if count == 0:
+            return False, 'Element not found'
+        elif count > expected_count and expected_count == 1:
+            return False, 'Multiple elements found. Please use a more specific selector.'
+        return True, count
+    
+    def navigate(self, url):
+        """Navigate to a URL"""
+        try:
+            self.page.goto(url)
+            self.page_content_maybe_dirty = True
+            return {"status": "success", "url": url}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    
     def click(self, selector):
-        check, err = self._get_locator_count(selector)
+        """Click on an element"""
+        check, result = self._get_locator_count(selector)
         if check:
-            self.page.locator(selector).click()
-            return {"action": "click", "result": None}
+            try:
+                self.page.locator(selector).click()
+                self.page_content_maybe_dirty = True
+                return {"status": "success"}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
         else:
-            return {"action": "click", "result": err}
-
-    def type(self, selector, text):
-        check, err = self._get_locator_count(selector)
+            return {"status": "error", "message": result}
+    
+    def type_text(self, param):
+        """Type text into an input field"""
+        selector = param.get('selector')
+        text = param.get('text')
+        
+        if not selector or text is None:
+            return {"status": "error", "message": "Both 'selector' and 'text' are required"}
+        
+        check, result = self._get_locator_count(selector)
         if check:
-            self.page.locator(selector.strip()).fill(text.strip())
-            return {"action": "type", "result": None}
+            try:
+                self.page.locator(selector).fill(text)
+                self.page_content_maybe_dirty = True
+                return {"status": "success"}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
         else:
-            return {"action": "type", "result": err}
-
-    def get_value(self, selector):
-        check, err = self._get_locator_count(selector)
-        if check:
-            value = self.page.locator(selector).input_value()
-            return {"action": "get value", "result": value}
-        else:
-            return {"action": "get value", "result": err}
-
+            return {"status": "error", "message": result}
+    
     def get_text(self, selector):
-        check, err = self._get_locator_count(selector)
+        """Get text content from an element"""
+        check, result = self._get_locator_count(selector)
         if check:
-            text = self.page.locator(selector).inner_text()
-            return {"action": "get text", "result": text}
+            try:
+                text = self.page.locator(selector).inner_text()
+                return {"text": text}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
         else:
-            return {"action": "get text", "result": err}
-
+            return {"status": "error", "message": result}
+    
     def get_title(self):
-        title = self.page.title()
-        return {"action": "get title", "result": title}
+        """Get the title of the current page"""
+        try:
+            title = self.page.title()
+            return {"title": title}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    
+    def get_current_url(self):
+        """Get the current URL of the page"""
+        try:
+            url = self.page.url
+            return {"url": url}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+        
+    def wait_for_navigation(self):
+        """Wait for page navigation to complete"""
+        try:
+            self.page.wait_for_load_state("networkidle")
+            return {"status": "success"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    
+    def wait_seconds(self, seconds):
+        """Wait for a specified number of seconds"""
+        try:
+            # Convert to float in case it's passed as string
+            seconds_float = float(seconds)
+            time.sleep(seconds_float)
+            return {"status": "success"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    
+    def get_page_content(self):
+        """Get a simplified version of the page content with only essential interactive elements"""
+        if not self.page_content_maybe_dirty:
+            return {"status": "error", "message": "Use previously extracted page content"}
+        
+        try:
+            # List of elements we want to extract
+            selectors = [
+                # Core interactive elements
+                "button", "input", "a", "textarea", "select", "option",
+                
+                # Semantic elements 
+                "[id]:not(script):not(style)", "[role]", "[aria-label]",
+                
+                # Common UI elements
+                "h1", "h2", "h3", "label",
+                ".btn", ".button", "[type='submit']", "[type='checkbox']", "[type='radio']"
+            ]
+            
+            # Build a selector that combines all our target elements
+            combined_selector = ", ".join(selectors)
+            
+            # Get all matching elements
+            elements = self.page.query_selector_all(combined_selector)
+            
+            # Create a set to track elements we've already processed
+            processed_elements = set()
+            essential_elements = []
+            
+            # Process each element and extract relevant data via JavaScript
+            for element in elements:
+                try:
+                    # Get all element data in a single call to page.evaluate
+                    element_data = self.page.evaluate("""(el) => {
+                        // Function to generate a unique selector
+                        function getUniqueSelector(element) {
+                            if (element.id) {
+                                return `#${element.id}`;
+                            }
+                            if (element.tagName === 'HTML') {
+                                return 'html';
+                            }
+                            if (element.tagName === 'BODY') {
+                                return 'body';
+                            }
+                            
+                            const parent = element.parentNode;
+                            if (!parent) {
+                                return element.tagName.toLowerCase();
+                            }
 
-    def wait(self, seconds):
-        time.sleep(seconds)
-        return {"action": "wait", "result": None}
+                            const index = Array.from(parent.children).indexOf(element) + 1;
+                            const baseSelector = `${element.tagName.toLowerCase()}:nth-child(${index})`;
+                            const parentSelector = getUniqueSelector(parent);
 
-    def get_content(self):
-        return self.page.content()
+                            return `${parentSelector} > ${baseSelector}`;
+                        }
+                        
+                        // Get element attributes
+                        const importantAttrs = ['id', 'class', 'type', 'name', 'role', 'aria-label', 'data-testid', 'placeholder', 'href', 'value'];
+                        const filteredAttrs = {};
+                        for (const attr of el.attributes) {
+                            if (importantAttrs.includes(attr.name)) {
+                                filteredAttrs[attr.name] = attr.value;
+                            }
+                        }
+                        
+                        // Get and truncate text content
+                        let textContent = el.textContent ? el.textContent.trim() : '';
+                        if (textContent.length > 100) {
+                            textContent = textContent.substring(0, 100) + '...';
+                        }
+                        
+                        const style = window.getComputedStyle(el);
+                        const isVisible = style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+                        // Return all element data at once
+                        return {
+                            uniqueSelector: getUniqueSelector(el),
+                            tagName: el.tagName.toLowerCase(),
+                            attributes: filteredAttrs,
+                            textContent: textContent,
+                            isVisible: isVisible,
+                            isSelfClosing: ['input', 'img', 'br', 'hr', 'meta', 'link'].includes(el.tagName.toLowerCase())
+                        };
+                    }""", element)
+                    
+                    # Skip if we've already processed an element with this selector
+                    if element_data['uniqueSelector'] in processed_elements:
+                        continue
+                    
+                    if not element_data['isVisible']:
+                        continue
+
+                    processed_elements.add(element_data['uniqueSelector'])
+                    
+                    # Format the element attributes
+                    attr_str = " ".join([f'{k}="{v}"' for k, v in element_data['attributes'].items()])
+                    
+                    # Format element HTML based on type
+                    if element_data['isSelfClosing']:
+                        element_html = f"<{element_data['tagName']} {attr_str} />"
+                    elif element_data['textContent']:
+                        element_html = f"<{element_data['tagName']} {attr_str}>{element_data['textContent']}</{element_data['tagName']}>"
+                    else:
+                        element_html = f"<{element_data['tagName']} {attr_str}></{element_data['tagName']}>"
+                    
+                    essential_elements.append(element_html)
+                    
+                except Exception as e:
+                    # Skip elements that cause errors
+                    print(f"Error processing element: {str(e)}")
+                    continue
+            
+            # Mark page content as processed
+            self.page_content_maybe_dirty = False
+            
+            # Join the extracted elements
+            extracted_content = "\n".join(essential_elements)
+            
+            # Save extracted content to a debug file
+            # debug_file_path = "web_agent_extracted_content.html"
+            # with open(debug_file_path, "w", encoding="utf-8") as debug_file:
+            #     debug_file.write(extracted_content)
+            
+            # Truncate if needed to avoid large inputs to the model
+            truncated_content = extracted_content[:50000] + ("..." if len(extracted_content) > 50000 else "")
+            return {"content": truncated_content}
+            
+        except Exception as e:
+            return {"status": "error", "message": f"Error extracting page content: {str(e)}"}
+            
+    def close(self):
+        """Close the browser and playwright instance"""
+        try:
+            self.browser.close()
+            self.playwright.stop()
+            return {"status": "success", "message": "Browser closed successfully"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+
+class WebAgent(ToolAgent):
+    """Agent that uses ToolAgent architecture to control a web browser and complete tasks"""
+    
+    # Web-specific system prompt additions
+    EXTRA_WEB_PROMPT_TEMPLATE = """
+    You are a web agent that can control a web browser to complete tasks. Your goal is to follow the user's instructions precisely.
+
+    BROWSER GUIDELINES:
+    1. Use VALID CSS selectors to identify elements on the page.
+    - ID selectors use a '#' before the ID name. For example, '#my-id'.
+    - Class selectors use a '.' before the class name. For example, '.my-class'.
+    - Attribute selectors use '[]' with the attribute name and value. For example, '[name="my-name"]'.
+    2. Wait for navigation to complete when necessary.
+    3. Get the updated page content after navigation or interaction.
+    4. USE semantic ID, ROLE, and ARIA-LABEL attributes to identify elements in CSS selectors.
+
+    STRATEGY:
+    1. Think step-by-step about how a human would accomplish this task
+    2. Explore the page to understand its structure
+    3. Perform actions in a logical sequence 
+    4. Verify results after important steps
+    5. Extract the information requested in the task
+
+    When you complete the task, do the following:
+    - Provide a clear summary of what you found and the steps you took.
+    - Indicate the completion of the task by outputting 'task complete'
+    """
+    
+    def __init__(self, model_name="gemini-2.0-flash", headless=False):
+        """Initialize the web agent"""
+        # Initialize the parent ToolAgent
+        super().__init__(model_name=model_name)
+        
+        # Create and register the PageManagerToolProvider
+        self.web_provider = PageManagerToolProvider(headless=headless)
+        self.register_provider(self.web_provider)
+    
+    def run_task(self, task, verbose=True):
+        """Run a web task using the agent"""
+        if verbose:
+            print(f"Starting task: {task}")
+        
+        # Create a conversation with web-specific instructions
+        conversation = self.create_conversation(extra_prompt=self.EXTRA_WEB_PROMPT_TEMPLATE)
+        
+        # Process the task message
+        task_message = f"""TASK: {task}
+        
+        First, analyze the current page to understand what you're working with.
+        Complete the task step by step, using the tools provided.
+        When you've completed the task, clearly state "task complete" and summarize what you found.
+        """
+        
+        # This single call will handle the entire conversation
+        result = self.process_message(conversation, task_message)
+        
+        # Check if the task was completed
+        completion_status = "complete" if "task complete" in result.get('text', '').lower() else "incomplete"
+        
+        if verbose and completion_status == "complete":
+            print("\nTask completed!")
+        
+        # Prepare final result
+        final_result = {
+            "task": task,
+            "status": completion_status,
+            "final_response": result.get('text', ''),
+            "token_usage": self.get_token_usage(),
+            "log": result.get('log', [])
+        }
+        
+        return final_result
 
     def close(self):
-        self.browser.close()
-        self.playwright.stop()
-
-    def execute_action(self, action):
-        try:
-            if action['action'] == "click":
-                target = action['selector']
-                return self.click(target)
-            elif action['action'] == "type":
-                target = action['selector']
-                text = action['value']
-                return self.type(target, text)
-            elif action['action'] == "navigate":
-                url = action['value']
-                self.goto(url)
-                return {"action": "navigate", "result": None}
-            elif action['action'] == "get value":
-                target = action['selector']
-                return self.get_value(target)
-            elif action['action'] == "get text":
-                target = action['selector']
-                return self.get_text(target)
-            elif action['action'] == "get title":
-                return self.get_title()
-            elif action['action'] == "wait":
-                seconds = int(action['value'])
-                return self.wait(seconds)
-            elif action['action'] == "done":
-                return {"action": "done", "result": action['result'], "status": action['status']}
-            else:
-                return {"action": "unknown", "result": "Unknown action."}
-        except Exception as e:
-            return {"action": "error", "result": f"Action failed: {e}"}
+        """Close the browser and clean up resources"""
+        self.web_provider.close()
 
 
-def extract_action_from_response(response):
-    action_raw = response.text().strip()
-
-    # Remove fenced code block if it exists. Models don't obey the prompt format.
-    action_raw = re.sub(r'^```json|```$', '', action_raw, flags=re.MULTILINE).strip()
-    return json.loads(action_raw)
-
-
-# Function to interact with a web page to complete a task
-def web_agent(model, task, initial_url=None):
-    page_manager = PageManager(headless=False)
-    current_state = {}
-
-    if initial_url:
-        page_manager.goto(initial_url)
-
-    def generate_next_action(current_state, task):
-        prompt = f"""
-            You are using a web browser to complete a task. You MUST ONLY use the provided HTML content of the current page.
-            In order to complete your task, you need to specify actions to take. You can click on buttons and links, type text into inputs, and navigate to new pages.
-
-            You MUST return a SINGLE action that should be done next. Use simple PLAIN TEXT.
-            Here are the allowable actions:
-            "click <valid CSS selector>", used for clicking on an element like a button or link element
-            "type <valid CSS selector> with <text>", used to enter text into an input or textarea element
-            "navigate to <url>", used to navigate to a new page
-            "get value <valid CSS selector>", used to get the value of an input, textarea, or select element
-            "get text <valid CSS selector>", used to get the inner text of an element
-            "get title", used to get the title of the HTML document
-            "wait <seconds>", used to wait for a certain amount of time
-            "done <status> <result>", used to indicate that the task is completed. 'status' should be 'success' or 'failed'. 'result' should contain the requested information of the task.
-
-            Actions MUST be returned in lowercase and in PLAIN TEXT. do not use JSON or MARKDOWN.
-            Don't hallucinate actions. Only perform actions that are necessary to complete the task.
-            If you can complete the task by extracting text out of the HTML content, you can do that as well.
-            
-            Selectors MUST be VALID CSS selector format. Look for semantic ID, ROLE, and ARIA-LABEL attributes to identify elements.
-            Use 'ID' selectors or very specific selectors to limit conflicts.
-            ID selectors use a '#' before the ID name. For example, '#my-id'.
-            Class selectors use a '.' before the class name. For example, '.my-class'.
-            Attribute selectors use '[]' with the attribute name and value. For example, '[name="my-name"]'.
-            If can't find an element, try a different selector or use a different approach.
-
-            If you completed the task, you MUST respond with 'done' action, the status, and result of the task.
-            Don't hallucinate results. Only provide information that you have found on the HTML page. Do not create hypothetical results.
-            Make sure you include everything you found out for the ultimate task in the done result parameter. Do not just say you are done, but include the requested information of the task.
-
-            Task: {task}
-            Current page HTML content: {current_state['content']}
-            Previous action: {current_state['previous_action'] if 'previous_action' in current_state else ['None']}
-            Previous result: {current_state['previous_result'] if 'previous_result' in current_state else ['None']}
-        """
-
-        response = llm.get_model(model).prompt(prompt)
-        return response.text().strip()
-
-    current_state['content'] = page_manager.get_content()
-    action = generate_next_action(current_state, task)
-
-    while True:
-        current_state['previous_action'] = action
-        print(f"Action: {action}")
-        result = page_manager.execute_action(action)
-        if result['action'] == "done":
-            print("Task completed.")
-            print(f"Status: {result['status']}")
-            print(f"Result: {result['result']}")
-            break
-        elif result['result'] is not None:
-            current_state['previous_result'] = result
-            print(f"Result: {result['result']}")
-        elif 'previous_result' in current_state:
-            # remove previous_result from current_state
-            del current_state['previous_result']
-
-        time.sleep(1)
-        current_state['content'] = page_manager.get_content()
-        action = generate_next_action(current_state, task)
-
-    page_manager.close()
-
-
-# Function to interact with a web page to complete a task using conversation mode
-def web_agent_conversation(model, task, initial_url=None):
-    page_manager = PageManager(headless=False)
-
-    if initial_url:
-        page_manager.goto(initial_url)
-
-    conversation = llm.get_model(model).conversation() #Creates a new conversation.
-
-    page_content = page_manager.get_content()
-
-    initial_prompt = f"""
-        You are using a web browser to complete a task. You MUST ONLY use the provided HTML content of the current page.
-        In order to complete your task, you need to specify actions to take. You can click on buttons and links, type text into inputs, and navigate to new pages.
-
-        You MUST return a SINGLE action that should be done. One action will be executed at a time.
-        Return the action as a VALID JSON object in the format: {{"action": "type of action", "selector": "valid CSS selector", "value": "value to type"}}.
-        "selector" and "value" are optional depending on the action.
-        Response format MUST ALWAYS be only the raw JSON, NO string delimiters wrapping it, NO yapping, NO markdown, NO fenced code blocks.
-        What you return will be passed to json.loads() directly.
-
-        Here are the allowable actions:
-        "click" is used for clicking on an element like a button or link. For example, "{{'action': 'click', 'selector': 'valid CSS selector'}}"
-        "type" is used to enter text into an input or textarea element. For example, "{{'action': 'type', 'selector': 'valid CSS selector', 'value': 'text to type'}}"
-        "navigate" is used to navigate to a new page. For example, "{{'action': 'navigate', 'value': 'https://www.example.com'}}"
-        "get value" is used to get the value of an input, textarea, or select element. For example, "{{'action': 'get value', 'selector': 'valid CSS selector'}}"
-        "get text" is used to get the inner text of an element. For example, "{{'action': 'get text', 'selector': 'valid CSS selector'}}"
-        "get title" is used to get the title of the HTML document. For example, "{{'action': 'get title'}}"
-        "wait" is used to wait for a certain amount of time. For example, "{{'action': 'wait', 'value': 5}}"
-        "done" is used to indicate that the task is completed. For example, "{{'action': 'done', 'status': 'success or failure', 'result': 'result of the task'}}"
-
-        Don't hallucinate actions. Only perform actions that are necessary to complete the task.
-        If you can complete the task by extracting text out of the HTML content, you can do that as well.
-        
-        Selectors MUST be VALID CSS selector format. Look for semantic ID, ROLE, and ARIA-LABEL attributes to identify elements.
-        Use 'ID' selectors or very specific selectors to limit conflicts.
-        ID selectors use a '#' before the ID name. For example, '#my-id'.
-        Class selectors use a '.' before the class name. For example, '.my-class'.
-        Attribute selectors use '[]' with the attribute name and value. For example, '[name="my-name"]'.
-        If can't find an element, try a different selector or use a different approach.
-
-        If you completed the task, you MUST respond with 'done' action, the status, and result of the task.
-        Don't hallucinate results. Only provide information that you have found on the HTML page. Do not create hypothetical results.
-        Make sure you include everything you found out for the ultimate task in the done result parameter. Do not just say you are done, but include the requested information of the task.
-
-        Task: {task}
-        Current HTML content: {page_content}
-    """
-
-    verify_prompt = """
-        Verify that the task result exists in the HTML content.
-        If the result does not exist in the HTML, keep the task going and return the next action.
-        If the result is found, repeat the done action again.
-    """
-
-    response = conversation.prompt(initial_prompt)
-    action = extract_action_from_response(response)
-
-    while True:
-        print(f"Action: {json.dumps(action)}")
-        result = page_manager.execute_action(action)
-
-        if result['action'] == "done":
-            response = conversation.prompt(verify_prompt)
-            verify_action = extract_action_from_response(response)
-            if verify_action['action'] == "done":
-                print("Task completed.")
-                print(f"Status: {result['status']}")
-                print(f"Result: {result['result']}")
-                break
-            else:
-                action = verify_action
-
-         # Store the result in the conversation
-        conversation.prompt(f"The result of the last action was: {result['result']}")
-        print(f"Result: {result['result']}")
-
-        time.sleep(1)
-
-        page_content = page_manager.get_content()
-        response = conversation.prompt(f"Current HTML content: {page_content}. What single action should I do next?")
-        action = extract_action_from_response(response)
+def main():
+    """Main function to run the web agent"""
+    if len(sys.argv) > 1:
+        task = sys.argv[1]
+    else:
+        task = "Use 'https://duckduckgo.com', search for 'python tutorial', and return the title of the first result found"
     
-    responses = conversation.responses #Get all responses from the conversation.
-    for response in responses:
-        print(response)
-    print()
-    response = conversation.prompt('Explain how you completed the task')
-    print(response.text().strip())
+    agent = WebAgent()
+    
+    try:
+        start_time = datetime.datetime.now()
+        
+        result = agent.run_task(task)
+        
+        end_time = datetime.datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
+        result["duration_seconds"] = duration
+        
+        print("\n===== TASK SUMMARY =====")
+        print(f"Task: {result['task']}")
+        print(f"Status: {result['status']}")
+        print(f"Duration: {duration:.2f} seconds")
+        print(f"Input tokens: {result['token_usage'].get('input', 0)}")
+        print(f"Output tokens: {result['token_usage'].get('output', 0)}")
+        print("\n===== FINAL RESPONSE =====")
+        print(result.get('final_response', ''))
+        
+    finally:
+        agent.close()
 
-    page_manager.close()
 
-# Example usage:
-task = "Search for 'LLM agents' and return the first result's title."
-# web_agent("gemini-2.0-flash", task, "https://duckduckgo.com/")
-web_agent_conversation("gemini-2.0-flash", task, "https://duckduckgo.com/")
+if __name__ == "__main__":
+    main()
