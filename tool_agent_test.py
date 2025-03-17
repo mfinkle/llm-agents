@@ -1,10 +1,18 @@
 from tool_agent import ToolAgent
+from mock_providers import UtilityToolProvider, AppointmentToolProvider, ProgramToolProvider, StoreLocatorToolProvider
 
 
 # Standalone chat function for testing
 def start_chat(model):
     """Start an interactive chat session with the agent"""
     agent = ToolAgent(model_name=model)
+
+    # Register default tool providers
+    agent.register_provider(UtilityToolProvider())
+    agent.register_provider(AppointmentToolProvider())
+    agent.register_provider(ProgramToolProvider())
+    agent.register_provider(StoreLocatorToolProvider())
+
     conversation = agent.create_conversation()
     
     print("Chat initialized. Type 'exit', 'quit', or 'bye' to end the session.")
