@@ -1,9 +1,7 @@
-import datetime
 import json
 import re
 import llm
 
-from tool_providers import UtilityToolProvider, AppointmentToolProvider, ProgramToolProvider, StoreLocatorToolProvider
 
 # TODO: Add a human feedback mechanism (thumbs up/down) to improve the model
 # TODO: Save positive & negative feedback to a file for future training
@@ -65,12 +63,6 @@ class ToolAgent:
             'input': 0,
             'output': 0
         }
-        
-        # Register default tool providers
-        self.register_provider(UtilityToolProvider())
-        self.register_provider(AppointmentToolProvider())
-        self.register_provider(ProgramToolProvider())
-        self.register_provider(StoreLocatorToolProvider())
     
     def register_provider(self, provider):
         """Register a provider's tools with the agent"""
