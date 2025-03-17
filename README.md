@@ -51,7 +51,7 @@ Features of the Tool Agent:
 - **Validation** - Handles JSON parsing errors and schema validation with multiple retry attempts
 - **Token Usage Tracking** - Built-in tracking of input and output tokens for monitoring usage and costs
 
-[tool_agent readme](tool_agent.md)
+[ToolAgent readme](tool_agent.md)
 
 #### Running the Tool Agent
 
@@ -79,14 +79,54 @@ print(result['text'])
 
 ### Web Agent
 
-The `web_agent.py` script is designed to interact with web services and perform web-related tasks using a web browser. The agent is given the HTML content and a set of browser-automation tools it can use to interact with the web content. The purpose of the script is to evaluate how an LLM can manipulate _mostly_ unstructured content. Most web pages are *not* well structured.
+The `web_agent.py` script provides a browser automation agent (`WebAgent`) built on top of the `ToolAgent` architecture. It combines the power of LLMs with Playwright's browser automation capabilities, allowing complex web tasks to be performed through natural language instructions.
 
-[web_agent readme](web_agent.md)
+Features of the Web Agent:
 
-To run the web agent, use the following command:
+- **Browser Automation** - Navigate, click, type, and interact with web elements through natural language commands
+- **Built on ToolAgent** - Uses the `ToolAgent` and `ToolProvider` architecture for tool management and reasoning
+- **Element Detection**: Tries to intelligently identify interactive elements on web pages
+- **Visibility Filtering** - Focus on visible elements for better task completion
+- **Clean Output** - Returns well-structured responses with task summaries
 
+[WebAgent readme](web_agent.md)
+
+#### Running the Web Agent
+
+You can use the Web Agent in several ways:
+
+1. Run a web task from the command line:
 ```
-python web_agent.py
+python web_agent.py "Navigate to wikipedia.org and find the featured article of the day"
+```
+
+2. Import and use in your own scripts:
+```python
+from web_agent import WebAgent
+
+agent = WebAgent(model_name='gemini-2.0-flash')
+
+try:
+    # Navigate to a starting URL
+    agent.web_provider.navigate('https://www.example.com')
+    
+    # Run a task
+    result = agent.run_task('Fill out the contact form with dummy data')
+    
+    # Print the result
+    print(result['final_response'])
+finally:
+    agent.close()  # Always close the browser when done
+```
+
+3. Extract detailed task performance metrics:
+```python
+result = agent.run_task("Find the pricing information on the website")
+
+print(f"Task Status: {result['status']}")
+print(f"Duration: {result['duration_seconds']:.2f} seconds")
+print(f"Input tokens: {result['token_usage'].get('input', 0)}")
+print(f"Output tokens: {result['token_usage'].get('output', 0)}")
 ```
 
 ## License
