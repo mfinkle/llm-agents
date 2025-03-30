@@ -133,14 +133,14 @@ print(f"Output tokens: {result['token_usage'].get('output', 0)}")
 
 This repository also includes a Model Context Protocol (MCP) implementation, using the `stdio` transport:
 
-- **`tool_provider_mcp_server.py`** - A server that exposes tools via the Model Context Protocol
-- **`tool_agent_mcp_client.py`** - A client that connects to MCP servers and makes their tools available to the ToolAgent
+- **`tool_provider_mcp_server.py`** - A server that exposes `ToolProvider` tools via the Model Context Protocol
+- **`tool_agent_mcp_client.py`** - A client that connects to MCP servers and makes their tools available to `ToolAgent`
 
-The Model Context Protocol (MCP) allows language models to discover and invoke tools provided by external servers. This implementation follows the [MCP specification](https://github.com/microsoft/modelcontextprotocol/blob/main/docs/protocol.md).
+The Model Context Protocol (MCP) allows language models to discover and invoke tools provided by external servers. This implementation  attempts to follow the [MCP specification](https://spec.modelcontextprotocol.io/specification/2025-03-26/).
 
 #### Running the MCP Server
 
-The MCP server exposes tools from various providers through a standardized protocol. You will likely not launch this yourself, but will config an MCP Client to launch:
+The MCP server exposes tools from various providers through a standardized protocol. You will likely not launch the server yourself, but will config an MCP Client to launch:
 
 ```bash
 python tool_provider_mcp_server.py [--debug]
