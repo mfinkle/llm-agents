@@ -119,7 +119,7 @@ finally:
     agent.close()  # Always close the browser when done
 ```
 
-3. Extract detailed task performance metrics:
+3. Extract task performance metrics:
 ```python
 result = agent.run_task("Find the pricing information on the website")
 
@@ -127,6 +127,70 @@ print(f"Task Status: {result['status']}")
 print(f"Duration: {result['duration_seconds']:.2f} seconds")
 print(f"Input tokens: {result['token_usage'].get('input', 0)}")
 print(f"Output tokens: {result['token_usage'].get('output', 0)}")
+```
+
+### MCP Server and Client
+
+This repository also includes a Model Context Protocol (MCP) implementation, using the `stdio` transport:
+
+- **`tool_provider_mcp_server.py`** - A server that exposes tools via the Model Context Protocol
+- **`tool_agent_mcp_client.py`** - A client that connects to MCP servers and makes their tools available to the ToolAgent
+
+The Model Context Protocol (MCP) allows language models to discover and invoke tools provided by external servers. This implementation follows the [MCP specification](https://github.com/microsoft/modelcontextprotocol/blob/main/docs/protocol.md).
+
+#### Running the MCP Server
+
+The MCP server exposes tools from various providers through a standardized protocol. You will likely not launch this yourself, but will config an MCP Client to launch:
+
+```bash
+python tool_provider_mcp_server.py [--debug]
+```
+
+#### Running the MCP Client
+
+The MCP client connects to one or more MCP servers and registers their tools with a ToolAgent:
+
+```bash
+python tool_agent_mcp_client.py
+```
+
+Configuration options:
+- `--config` - Path to a custom config file
+- `--server` - Name of a specific server to connect to
+- `--model` - Model name to use (default: gemini-2.0-flash)
+- `--debug` - Enable debug output
+
+#### MCP Configuration
+
+The client looks for server configurations in a file called `mcp_config.json`. By default, it searches in:
+1. The current directory
+2. `~/.config/mcp_config.json`
+3. `~/Library/Application Support/MCP/mcp_config.json`
+
+Example configuration:
+```json
+{
+  "mcpServers": {
+    "mock": {
+      "command": "python",
+      "args": ["/Path/To/Server/tool_provider_mcp_server.py"]
+    }
+  }
+}
+```
+
+Each entry in mcpServers defines a named server with a command to start it and optional arguments.
+
+**NOTE:** If you're running your Python-based MCP Server in a virtual environment, use the full path to the python binary, and it's always best to use the absolute path to the server, since you don't really know what the working directory will be:
+```json
+{
+  "mcpServers": {
+    "mock": {
+      "command": "/Path/To/Server/venv/bin/python",
+      "args": ["/Path/To/Server/tool_provider_mcp_server.py"]
+    }
+  }
+}
 ```
 
 ## License

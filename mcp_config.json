@@ -1,0 +1,19 @@
+{
+    "mcpServers": {
+        "filesystem": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "/Users/username/Desktop",
+                "/Users/username/Documents"
+            ]
+        },
+        "mock": {
+            "command": "/Path/To/Server/venv/bin/python",
+            "args": [
+                "/Path/To/Server/tool_provider_mcp_server.py"
+            ]
+        }
+    }
+}
