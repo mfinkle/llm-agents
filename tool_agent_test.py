@@ -47,3 +47,4 @@ if __name__ == '__main__':
     except llm.UnknownModelError as e:
         print(f"\nThe model alias {model_alias} provided in the test is not supported. Error: {e}\n")
         print(f"Supported models are: {ToolAgent.get_supported_models()}")
+        print("\nIt could be that you have not installed an llm model add on like llm-gemini for your llm package. Check out the README for more information.\n")
