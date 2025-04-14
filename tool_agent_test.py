@@ -1,3 +1,5 @@
+import llm
+
 from tool_agent import ToolAgent
 from mock_providers import UtilityToolProvider, AppointmentToolProvider, ProgramToolProvider, StoreLocatorToolProvider
 
@@ -38,4 +40,11 @@ def start_chat(model):
     print(f"  Total tokens: {usage.get('input', 0) + usage.get('output', 0)}")
 
 if __name__ == '__main__':
-    start_chat('gemini-2.0-flash')
+    try:
+        model_alias = 'gemini-2.0-flash'
+        start_chat(model=model_alias)
+
+    except llm.UnknownModelError as e:
+        print(f"\nThe model alias {model_alias} provided in the test is not supported. Error: {e}\n")
+        print(f"Supported models are: {ToolAgent.get_supported_models()}")
+        print("\nIt could be that you have not installed an llm model add on like llm-gemini for your llm package. Check out the README for more information.\n")

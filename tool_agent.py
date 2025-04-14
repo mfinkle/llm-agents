@@ -421,3 +421,10 @@ class ToolAgent:
             'input': 0,
             'output': 0
         }
+
+    @staticmethod
+    def get_supported_models():
+        """Return a list of supported models dynamically from the llm package."""
+        from llm import get_models_with_aliases
+        models_with_aliases = get_models_with_aliases()
+        return [model_with_alias.model.model_id for model_with_alias in models_with_aliases]

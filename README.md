@@ -29,6 +29,13 @@ Once the virtual environment is activated, you can install the necessary depende
 ## Dependencies
 The agent scripts use `llm` to interact with different LLM models. More information on setting up and using `llm` can be found in its [documentation](https://llm.datasette.io/en/stable/index.html). You'll need to make sure `llm` is configured to work with at least one LLM.
 
+The tests for this project use the gemini family of models. To be able to run the tests you can follow the steps in this [documentation](https://github.com/simonw/llm-gemini). The steps are also provided more succinctly below:
+
+```
+llm install llm-gemini
+llm keys set gemini
+```
+
 The agent in `web_agent.py` uses `playwright` to launch and automate a web browser. More information on setting up and using `playwright` can be found in its Python [documentation](https://playwright.dev/python/docs/intro). You'll need to make sure `playwright` is setup to work with at least one we browser. I installed `chromium` since I do not use that for my primary web browser. That removes any conflicts between running the script and my actual browsing.
 
 To install the necessary dependencies, run:
